@@ -1,0 +1,13 @@
+{
+  "name": "hardhat-gemcutter",
+  "version": "1.0.0",
+  "scripts": {},
+  "main": "./tasks/diamond.js",
+  "dependencies": {
+    "bs58": "^5.0.0",
+    "cbor-x": "^1.2.1",
+    "dotenv": "^14.2.0",
+    "ipfs-http-client": "^56.0.3",
+    "json-diff": "^0.7.1"
+  }
+}
