@@ -98,7 +98,7 @@ task("diamond:deploy", "Deploy a new diamond")
 
     // deploy Diamond
     const Diamond = await ethers.getContractFactory('Diamond')
-    const diamond = await Diamond.deploy(contractOwner.address, diamondCutFacetAddress, diamondLoupeFacetAddress, '0x62E3133bd2BA458baBfE0b156ECf2475dF4CFa5E')
+    const diamond = await Diamond.deploy(contractOwner.address, diamondCutFacetAddress, diamondLoupeFacetAddress)
     await diamond.deployed()
 
     contractsToVerify.push({
@@ -343,7 +343,7 @@ async function deployAndVerifyFacetsFromDiff(facetsToDeployAndVerify, CHAIN_ID) 
 task("diamond:cut", "Compare the local diamond.json with the remote diamond")
   .addOptionalParam("address", "The diamond's address", "")
   .addOptionalParam("o", "The file to create", "diamond.json")
-  .addOptionalParam("initFacet", "Facet to init", "")
+  .addOptionalParam("initContract", "Contract to init", "")
   .addOptionalParam("initFn", "Function to call during init", "")
   .addOptionalParam("initParams", "Parameters to pass during init", "")
   .setAction(async (args, hre) => {
@@ -471,20 +471,22 @@ task("diamond:cut", "Compare the local diamond.json with the remote diamond")
       initFacet = 
     } else */
     if (args.initFacet !== "" && args.initFn !== "") {
-      initAddress = address
-      let facetAddress
-      if (diamondJson.contracts[args.initFacet].type === 'remote') {
-        facetAddress = diamondJson.contracts[args.initFacet].address
-      } else {
-        facetAddress = verifiedFacets.find(vf => vf.name === args.initFacet).address
-      }
-
-      const {abi} = await getMetadataFromAddress(facetAddress)
+      const InitContract = await ethers.getContractFactory(args.initContract)
+      const initContract = await InitContract.deploy()
+      initAddress = initContract.address
+      await initContract.deployed()
+      
+      await verify([{
+        name: args.initContract,
+        address: initAddress
+      }])
+      
+      const {abi} = await getMetadataFromAddress(initAddress)
 
       let iface = new ethers.utils.Interface(abi)
 
       if (args.initParams.length >= 0) {
-        let params = args.initParams.split(',')
+        let params = JSON.parse(args.initParams)
         functionCall = iface.encodeFunctionData(args.initFn, params)
       } else {
         functionCall = iface.encodeFunctionData(args.initFn)
@@ -510,8 +512,7 @@ task("diamond:init", "Init the diamond.json from the DIAMONDFILE")
   .addOptionalParam("o", "The file to create", "diamond.json")
   .setAction(async (args, hre) => {
     const diamondFile = fs.readFileSync(args.diamondfile)
-    const commands = diamondFile.toString().split('\n')
-
+    let commands = diamondFile.toString().split('\n').filter(cmd => !cmd.startsWith('#'))
     await runCommands(commands, args.o)
   })
 
